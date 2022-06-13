@@ -20,7 +20,17 @@ function Particle.new(emitter)
 		math.random(emitter.xSpeed.Min, emitter.xSpeed.Max),
 		math.random(emitter.ySpeed.Min, emitter.ySpeed.Max)
 	)
-	self.Position = emitter.Hook.AbsolutePosition
+	
+	local spawnPosition
+	if emitter.EmitterMode == "Point" then
+		spawnPosition = emitter.Hook.AbsolutePosition
+	else
+		spawnPosition = emitter.Hook.AbsolutePosition
+		local size = emitter.Hook.AbsoluteSize/2
+		spawnPosition = Vector2.new(spawnPosition.X + math.random(-size.X, size.X), spawnPosition.Y + math.random(-size.Y, size.Y))
+	end
+	
+	self.Position = spawnPosition
 	self.element.Position = UDim2.new(
 		UDim.new(0, self.Position.X),
 		UDim.new(0, self.Position.Y)
@@ -90,12 +100,15 @@ function ParticleEmitter.new(hook: GuiObject, particleElement: GuiObject)
 	self.Transparency = 0
 	self.ZOffset = 0
 	self.xSpeed = NumberRange.new(0,0)
-	self.ySpeed = NumberRange.new(125,150)
+	self.ySpeed = NumberRange.new(150,500)
 	self.SpreadAngle = NumberRange.new(-15,15)
 	self.RotSpeed = 0
 	self.Lifetime = NumberRange.new(5,10)
-	self.Acceleration = Vector2.new(0,-150)
+	self.Acceleration = Vector2.new(0,-500)
 	
+	-- "Fill": spawn randomly within the hook
+	-- "Point": spawn at the center of the hook
+	self.EmitterMode = "Fill"
 	--set up canvas
 	self.Canvas = Instance.new("CanvasGroup")
 	self.Canvas.Parent = hook:FindFirstAncestorWhichIsA("LayerCollector")
