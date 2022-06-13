@@ -14,9 +14,17 @@ function Particle.new(emitter)
 	self.element = emitter.Element:Clone()
 	self.element.Size = emitter.Size
 	self.element.Parent = emitter.Canvas
+	
 	emitter.preSpawn(self.element)
-	self.Speed = emitter.Speed
+	self.Speed = Vector2.new(
+		math.random(emitter.xSpeed.Min, emitter.xSpeed.Max),
+		math.random(emitter.ySpeed.Min, emitter.ySpeed.Max)
+	)
 	self.Position = emitter.Hook.AbsolutePosition
+	self.element.Position = UDim2.new(
+		UDim.new(0, self.Position.X),
+		UDim.new(0, self.Position.Y)
+	)
 	self.SpreadAngle = math.random(emitter.SpreadAngle.Min, emitter.SpreadAngle.Max)
 	self.RotSpeed = emitter.RotSpeed
 	
@@ -81,7 +89,8 @@ function ParticleEmitter.new(hook: GuiObject, particleElement: GuiObject)
 	self.Size = particleElement.Size
 	self.Transparency = 0
 	self.ZOffset = 0
-	self.Speed = Vector2.new(0,150)
+	self.xSpeed = NumberRange.new(0,0)
+	self.ySpeed = NumberRange.new(125,150)
 	self.SpreadAngle = NumberRange.new(-15,15)
 	self.RotSpeed = 0
 	self.Lifetime = NumberRange.new(5,10)
