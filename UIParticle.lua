@@ -1,4 +1,20 @@
-local Particle = {}
+export type Particle = {
+	Element: GuiObject,
+	Speed: number,
+	Position: Vector2,
+	SpreadAngle: number,
+	RotSpeed: number,
+	Acceleration: Vector2,
+	Age: number,
+	Ticks: number,
+	maxAge: number,
+	isDead: boolean,
+	new: (Emitter: ParticleEmitter2D) -> (Particle),
+	Update: (self: Particle, delta: number) -> (),
+	Destroy: (self: Particle) -> ()
+}
+	
+local ParticleClass: Particle = {}
 
 local function Rotate(v: Vector2, degrees: number)
 	local sin = math.sin(math.rad(degrees));
@@ -9,13 +25,13 @@ local function Rotate(v: Vector2, degrees: number)
 	return Vector2.new((cos * tx) - (sin * ty),(sin * tx) + (cos * ty))
 end
 
-function Particle.new(emitter)
+function ParticleClass.new(emitter)
 	local self = {}
-	self.element = emitter.Element:Clone()
-	self.element.Size = emitter.Size
-	self.element.Parent = emitter.Canvas
+	self.Element = emitter.Element:Clone()
+	self.Element.Size = emitter.Size
+	self.Element.Parent = emitter.Canvas
 	
-	emitter.preSpawn(self.element)
+	emitter.preSpawn(self.Element)
 	self.Speed = Vector2.new(
 		math.random(emitter.xSpeed.Min, emitter.xSpeed.Max),
 		math.random(emitter.ySpeed.Min, emitter.ySpeed.Max)
@@ -33,7 +49,7 @@ function Particle.new(emitter)
 	end
 	
 	self.Position = spawnPosition
-	self.element.Position = UDim2.new(
+	self.Element.Position = UDim2.new(
 		UDim.new(0, self.Position.X),
 		UDim.new(0, self.Position.Y)
 	)
@@ -44,50 +60,77 @@ function Particle.new(emitter)
 	self.Acceleration = Rotate(emitter.Acceleration, -self.SpreadAngle)
 	
 	self.Transparency = emitter.Transparency
-	self.age = 0
-	self.ticks = 0
+	self.Age = 0
+	self.Ticks = 0
 	self.maxAge = math.random(emitter.Lifetime.Min, emitter.Lifetime.Max)
 	self.isDead = false
 
-	return setmetatable(self, {__index = Particle})
+	return setmetatable(self, {__index = ParticleClass})
 end
 
 
 
-function Particle:Update(delta)
+function ParticleClass:Update(delta)
 
-	if self.age >= self.maxAge and self.maxAge > 0 then 
+	if self.Age >= self.maxAge and self.maxAge > 0 then 
 		self:Destroy()
 		return
 	end
 
 
-	self.ticks = self.ticks + 1
-	self.age = self.age + delta	
+	self.Ticks = self.Ticks + 1
+	self.Age = self.Age + delta	
 	
 	local dir = Rotate(self.Speed, self.SpreadAngle) * Vector2.new(1,-1)
 	self.Speed += (self.Acceleration * delta)
 
 	self.Position += (dir * delta)
-	self.element.Position = UDim2.new(
+	self.Element.Position = UDim2.new(
 		UDim.new(0, self.Position.X),
 		UDim.new(0, self.Position.Y)
 	)
-	self.element.Rotation += self.RotSpeed * delta
+	self.Element.Rotation += self.RotSpeed * delta
 
 end
 
-function Particle:Destroy()
+function ParticleClass:Destroy()
 	self.isDead = true
-	self.element:Destroy()
+	self.Element:Destroy()
 end
 
 
-local ParticleEmitter = {}
+export type ParticleEmitter2D = {
+	particles: {Particle},
+	Enabled: boolean,
+	Element: GuiObject,
+	Hook: GuiObject,
+	preSpawn: any,
+	Rate: number,
+	Color: Color3,
+	Size: UDim2,
+	Transparency: number,
+	ZOffset: number,
+	xSpeed: NumberRange,
+	ySpeed: NumberRange,
+	SpreadAngle: NumberRange,
+	RotSpeed: number,
+	Lifetime: NumberRange,
+	Acceleration: Vector2,
+	EmitterMode: string,
+	Canvas: CanvasGroup,
+	__dead: boolean,
+	__elapsedTime: number,
+	__runServiceConnection: RBXScriptConnection,
+	new: (Hook: GuiObject, Element: GuiObject) -> (ParticleEmitter2D),
+	Emit: (self: ParticleEmitter2D, count: number) -> (),
+	Destroy: (self: ParticleEmitter2D) -> ()
+}
 
+local ParticleEmitterClass: ParticleEmitter2D = {}
 
-function ParticleEmitter.new(hook: GuiObject, particleElement: GuiObject)
+function ParticleEmitterClass.new(hook: GuiObject, particleElement: GuiObject)
 	local self = {}
+	
 	self.particles = {}
 	self.Enabled = false
 	self.Element = particleElement
@@ -150,26 +193,26 @@ function ParticleEmitter.new(hook: GuiObject, particleElement: GuiObject)
 
 		if self.Rate > 0 and (self.__dead == false) and self.Enabled then
 			while self.__elapsedTime >= (1/self.Rate) do
-				table.insert(self.particles, Particle.new(self))
+				table.insert(self.particles, ParticleClass.new(self))
 				self.__elapsedTime = self.__elapsedTime - (1/self.Rate)
 			end
 		end
 	end)
 	
-	return setmetatable(self, {__index = ParticleEmitter})
+	return setmetatable(self, {__index = ParticleEmitterClass})
 end
 
 
-function ParticleEmitter:Emit(n: number)
+function ParticleEmitterClass:Emit(count: number)
 	local counter = 0
-	while counter < n do
+	while counter < count do
 		counter += 1
-		table.insert(self.particles, Particle.new(self))
+		table.insert(self.particles, ParticleClass.new(self))
 	end
 	
 end
 
-function ParticleEmitter:Destroy()
+function ParticleEmitterClass:Destroy()
 
 	if self.__dead then
 		error('Cannot destroy dead particle emitter.')
@@ -188,4 +231,4 @@ function ParticleEmitter:Destroy()
 	end
 end
 
-return ParticleEmitter
+return ParticleEmitterClass
