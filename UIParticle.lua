@@ -23,7 +23,7 @@ export type Particle = {
 	Update: (self: Particle, delta: number) -> (),
 	Destroy: (self: Particle) -> ()
 }
-	
+
 local ParticleClass: Particle = {}
 
 local function Rotate(v: Vector2, degrees: number)
@@ -84,8 +84,8 @@ end
 function ParticleClass.new(emitter)
 	local self = {}
 	self.Element = emitter.Element:Clone()
-	
 	self.Color = emitter.Color
+	self.StartSize = self.Element.AbsoluteSize
 	self.Transparency = emitter.Transparency
 	self.Canvas = Instance.new("CanvasGroup")
 	self.Canvas.Parent = emitter.Hook:FindFirstAncestorWhichIsA("LayerCollector")
@@ -121,14 +121,14 @@ function ParticleClass.new(emitter)
 		math.random(emitter.xSpeed.Min, emitter.xSpeed.Max),
 		math.random(emitter.ySpeed.Min, emitter.ySpeed.Max)
 	)
-	
+
 
 	self.SpreadAngle = math.random(emitter.SpreadAngle.Min, emitter.SpreadAngle.Max)
-	self.RotSpeed = emitter.RotSpeed
-	
+	self.RotSpeed = math.random(emitter.RotSpeed.Min, emitter.RotSpeed.Max)
+
 	--unrotate the acceleration since the speed will be rotated
 	self.Acceleration = Rotate(emitter.Acceleration, -self.SpreadAngle)
-	
+
 	self.Transparency = emitter.Transparency
 	self.Age = 0
 	self.Ticks = 0
@@ -150,17 +150,20 @@ function ParticleClass:Update(delta)
 
 	self.Ticks = self.Ticks + 1
 	self.Age = self.Age + delta	
-	self.Canvas.Size = UDim2.new(
-		UDim.new(0, evalNS(self.Size.X, Normalize(0, self.maxAge, self.Age))),
-		UDim.new(0, evalNS(self.Size.Y, Normalize(0, self.maxAge, self.Age)))
-	)
+	local xSize, ySize = evalNS(self.Size.X, Normalize(0, self.maxAge, self.Age)), evalNS(self.Size.Y, Normalize(0, self.maxAge, self.Age))
+	if xSize and ySize then
+		self.Canvas.Size = UDim2.new(
+			UDim.new(0, self.StartSize.X * xSize),
+			UDim.new(0, self.StartSize.Y *ySize)
+		)
+	end
 	local nextColor = evalCS(self.Color, Normalize(0, self.maxAge, self.Age))
 	if nextColor then
 		self.Canvas.GroupColor3 = nextColor
 	end
 	self.Canvas.GroupTransparency = evalNS(self.Transparency, Normalize(0, self.maxAge, self.Age))
-	
-	
+
+
 	local dir = Rotate(self.Speed, self.SpreadAngle) * Vector2.new(1,-1)
 	self.Speed += (self.Acceleration * delta)
 
@@ -169,9 +172,9 @@ function ParticleClass:Update(delta)
 		UDim.new(0, self.Position.X),
 		UDim.new(0, self.Position.Y)
 	)
-	
-	
-	
+
+
+
 	self.Canvas.Rotation += self.RotSpeed * delta
 
 end
@@ -196,7 +199,7 @@ export type ParticleEmitter2D = {
 	xSpeed: NumberRange,
 	ySpeed: NumberRange,
 	SpreadAngle: NumberRange,
-	RotSpeed: number,
+	RotSpeed: NumberRange,
 	Lifetime: NumberRange,
 	Acceleration: Vector2,
 	EmitterMode: (string: "Point") | (string: "Fill"),
@@ -204,35 +207,94 @@ export type ParticleEmitter2D = {
 	__elapsedTime: number,
 	__runServiceConnection: RBXScriptConnection,
 	new: (Hook: GuiObject, Element: GuiObject) -> (ParticleEmitter2D),
+	fromEmitter3D: (Hook: GuiObject, Emitter: ParticleEmitter, unitMultiplier: number?) -> (ParticleEmitter2D),
 	Emit: (self: ParticleEmitter2D, count: number) -> (),
 	Destroy: (self: ParticleEmitter2D) -> ()
 }
 
 local ParticleEmitterClass: ParticleEmitter2D = {}
 
+function ParticleEmitterClass.fromEmitter3D(hook: GuiObject, emitter: ParticleEmitter, unitMultiplier: number?)
+	local self = {}
+	unitMultiplier = unitMultiplier or 1
+	self.particles = {}
+	self.Enabled = false
+	self.Element = Instance.new("ImageLabel")
+	self.Element.Size = UDim2.new(0,unitMultiplier,0,unitMultiplier)
+	self.Element.Image = emitter.Texture
+	self.Element.BackgroundTransparency = 1
+	self.Element.Parent = game.ReplicatedStorage
+	self.Hook = hook
+
+	self.preSpawn = function(p) end
+
+	--properties
+	self.Rate = emitter.Rate
+	self.Color = emitter.Color
+	self.Size = {X = emitter.Size, Y = emitter.Size}
+	self.Transparency = emitter.Transparency
+	self.ZOffset = emitter.ZOffset
+	self.xSpeed = NumberRange.new(0,0)
+	self.ySpeed = NumberRange.new(emitter.Speed.Min * unitMultiplier, emitter.Speed.Max * unitMultiplier)
+	self.SpreadAngle = NumberRange.new(emitter.SpreadAngle.X, emitter.SpreadAngle.Y)
+	self.RotSpeed = emitter.RotSpeed
+	self.Lifetime = emitter.Lifetime
+	self.Acceleration = Vector2.new(emitter.Acceleration.X * unitMultiplier, emitter.Acceleration.Y * unitMultiplier)
+
+	self.EmitterMode = emitter.ShapeStyle == Enum.ParticleEmitterShapeStyle.Volume and "Fill" or "Point"
+
+
+
+	self.__dead = false
+	self.__elapsedTime = 0
+
+	self.__runServiceConnection = game:GetService("RunService").Heartbeat:Connect(function(delta)
+
+
+		self.__elapsedTime = self.__elapsedTime + delta	
+		for index, particle in ipairs(self.particles) do
+			if particle.isDead then 
+				table.remove(self.particles, index)
+			else
+				particle:Update(delta)
+			end
+		end
+
+
+		if self.Rate > 0 and (self.__dead == false) and self.Enabled then
+			while self.__elapsedTime >= (1/self.Rate) do
+				table.insert(self.particles, ParticleClass.new(self))
+				self.__elapsedTime = self.__elapsedTime - (1/self.Rate)
+			end
+		end
+	end)
+
+	return setmetatable(self, {__index = ParticleEmitterClass})
+end
+
 function ParticleEmitterClass.new(hook: GuiObject, particleElement: GuiObject)
 	local self = {}
-	
+
 	self.particles = {}
 	self.Enabled = false
 	self.Element = particleElement
 	self.Hook = hook
 
 	self.preSpawn = function(p) end
-	
+
 	--properties
 	self.Rate = 20
 	self.Color = ColorSequence.new(Color3.new(1,1,1))
-	self.Size = {X = NumberSequence.new(particleElement.AbsoluteSize.X), Y = NumberSequence.new(particleElement.AbsoluteSize.Y)}
+	self.Size = {X = NumberSequence.new(1), Y = NumberSequence.new(1)}
 	self.Transparency = NumberSequence.new(0)
 	self.ZOffset = 0
 	self.xSpeed = NumberRange.new(0,0)
 	self.ySpeed = NumberRange.new(150,500)
 	self.SpreadAngle = NumberRange.new(-15,15)
-	self.RotSpeed = 0
+	self.RotSpeed = NumberRange.new(0)
 	self.Lifetime = NumberRange.new(5,10)
 	self.Acceleration = Vector2.new(0,-500)
-	
+
 	-- "Fill": spawn randomly within the hook
 	-- "Point": spawn at the center of the hook
 	self.EmitterMode = "Point"
@@ -241,9 +303,9 @@ function ParticleEmitterClass.new(hook: GuiObject, particleElement: GuiObject)
 
 	self.__dead = false
 	self.__elapsedTime = 0
-	
+
 	self.__runServiceConnection = game:GetService("RunService").Heartbeat:Connect(function(delta)
-		
+
 
 		self.__elapsedTime = self.__elapsedTime + delta	
 		for index, particle in ipairs(self.particles) do
@@ -273,7 +335,7 @@ function ParticleEmitterClass:Emit(count: number)
 		counter += 1
 		table.insert(self.particles, ParticleClass.new(self))
 	end
-	
+
 end
 
 function ParticleEmitterClass:Destroy()
