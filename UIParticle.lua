@@ -24,10 +24,12 @@ function Particle.new(emitter)
 	local spawnPosition
 	if emitter.EmitterMode == "Point" then
 		spawnPosition = emitter.Hook.AbsolutePosition
+		local size = emitter.Hook.AbsoluteSize
+		spawnPosition = Vector2.new(spawnPosition.X + size.X/2, spawnPosition.Y + size.Y/2)
 	else
 		spawnPosition = emitter.Hook.AbsolutePosition
-		local size = emitter.Hook.AbsoluteSize/2
-		spawnPosition = Vector2.new(spawnPosition.X + math.random(-size.X, size.X), spawnPosition.Y + math.random(-size.Y, size.Y))
+		local size = emitter.Hook.AbsoluteSize
+		spawnPosition = Vector2.new(spawnPosition.X + math.random(0, size.X), spawnPosition.Y + math.random(0, size.Y))
 	end
 	
 	self.Position = spawnPosition
@@ -108,7 +110,7 @@ function ParticleEmitter.new(hook: GuiObject, particleElement: GuiObject)
 	
 	-- "Fill": spawn randomly within the hook
 	-- "Point": spawn at the center of the hook
-	self.EmitterMode = "Fill"
+	self.EmitterMode = "Point"
 	--set up canvas
 	self.Canvas = Instance.new("CanvasGroup")
 	self.Canvas.Parent = hook:FindFirstAncestorWhichIsA("LayerCollector")
