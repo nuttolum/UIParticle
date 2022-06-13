@@ -116,7 +116,7 @@ export type ParticleEmitter2D = {
 	RotSpeed: number,
 	Lifetime: NumberRange,
 	Acceleration: Vector2,
-	EmitterMode: string,
+	EmitterMode: (string: "Point") | (string: "Fill"),
 	Canvas: CanvasGroup,
 	__dead: boolean,
 	__elapsedTime: number,
@@ -198,7 +198,7 @@ function ParticleEmitterClass.new(hook: GuiObject, particleElement: GuiObject)
 			end
 		end
 	end)
-	
+
 	return setmetatable(self, {__index = ParticleEmitterClass})
 end
 
