@@ -1,3 +1,9 @@
+--custom type for the 2d number sequences
+export type NumberSequence2D = {
+	X: NumberSequence,
+	Y: NumberSequence
+}
+
 export type Particle = {
 	Element: GuiObject,
 	Speed: number,
@@ -5,10 +11,14 @@ export type Particle = {
 	SpreadAngle: number,
 	RotSpeed: number,
 	Acceleration: Vector2,
+	Size: NumberSequence2D,
+	Transparency: NumberSequence,
+	Color: ColorSequence,
 	Age: number,
 	Ticks: number,
 	maxAge: number,
 	isDead: boolean,
+	Canvas: CanvasGroup,
 	new: (Emitter: ParticleEmitter2D) -> (Particle),
 	Update: (self: Particle, delta: number) -> (),
 	Destroy: (self: Particle) -> ()
@@ -25,18 +35,67 @@ local function Rotate(v: Vector2, degrees: number)
 	return Vector2.new((cos * tx) - (sin * ty),(sin * tx) + (cos * ty))
 end
 
+local function Normalize(min, max, alpha)
+	return (alpha - min)/(max-min)
+end
+
+-- sequence evaluation functions taken from developer hub 
+
+function evalCS(cs, t)
+	-- If we are at 0 or 1, return the first or last value respectively
+	if t == 0 then return cs.Keypoints[1].Value end
+	if t == 1 then return cs.Keypoints[#cs.Keypoints].Value end
+	-- Step through each sequential pair of keypoints and see if alpha
+	-- lies between the points' time values.
+	for i = 1, #cs.Keypoints - 1 do
+		local this = cs.Keypoints[i]
+		local next = cs.Keypoints[i + 1]
+		if t >= this.Time and t < next.Time then
+			-- Calculate how far alpha lies between the points
+			local alpha = (t - this.Time) / (next.Time - this.Time)
+			-- Evaluate the real value between the points using alpha
+			return Color3.new(
+				(next.Value.R - this.Value.R) * alpha + this.Value.R,
+				(next.Value.G - this.Value.G) * alpha + this.Value.G,
+				(next.Value.B - this.Value.B) * alpha + this.Value.B
+			)
+		end
+	end
+end
+
+local function evalNS(ns, t)
+	-- If we are at 0 or 1, return the first or last value respectively
+	if t == 0 then return ns.Keypoints[1].Value end
+	if t == 1 then return ns.Keypoints[#ns.Keypoints].Value end
+	-- Step through each sequential pair of keypoints and see if alpha
+	-- lies between the points' time values.
+	for i = 1, #ns.Keypoints - 1 do
+		local this = ns.Keypoints[i]
+		local next = ns.Keypoints[i + 1]
+		if t >= this.Time and t < next.Time then
+			-- Calculate how far alpha lies between the points
+			local alpha = (t - this.Time) / (next.Time - this.Time)
+			-- Evaluate the real value between the points using alpha
+			return (next.Value - this.Value) * alpha + this.Value
+		end
+	end
+end
+
 function ParticleClass.new(emitter)
 	local self = {}
 	self.Element = emitter.Element:Clone()
-	self.Element.Size = emitter.Size
-	self.Element.Parent = emitter.Canvas
 	
-	emitter.preSpawn(self.Element)
-	self.Speed = Vector2.new(
-		math.random(emitter.xSpeed.Min, emitter.xSpeed.Max),
-		math.random(emitter.ySpeed.Min, emitter.ySpeed.Max)
-	)
-	
+	self.Color = emitter.Color
+	self.Transparency = emitter.Transparency
+	self.Canvas = Instance.new("CanvasGroup")
+	self.Canvas.Parent = emitter.Hook:FindFirstAncestorWhichIsA("LayerCollector")
+	self.Canvas.Size = UDim2.fromOffset(self.Element.AbsoluteSize.X, self.Element.AbsoluteSize.Y)
+	self.Canvas.AnchorPoint = Vector2.new(0.5,0.5)
+	self.Canvas.BackgroundTransparency = 1
+	self.Canvas.ZIndex = emitter.Hook.ZIndex + emitter.ZOffset
+	self.Canvas.GroupColor3 = evalCS(self.Color, 0)
+	self.Canvas.GroupTransparency = evalNS(self.Transparency, 0)
+	self.Element.Size = UDim2.fromScale(1,1)
 	local spawnPosition
 	if emitter.EmitterMode == "Point" then
 		spawnPosition = emitter.Hook.AbsolutePosition
@@ -47,12 +106,23 @@ function ParticleClass.new(emitter)
 		local size = emitter.Hook.AbsoluteSize
 		spawnPosition = Vector2.new(spawnPosition.X + math.random(0, size.X), spawnPosition.Y + math.random(0, size.Y))
 	end
-	
+
 	self.Position = spawnPosition
-	self.Element.Position = UDim2.new(
+	self.Canvas.Position = UDim2.new(
 		UDim.new(0, self.Position.X),
 		UDim.new(0, self.Position.Y)
 	)
+	self.Element.AnchorPoint = Vector2.new(0.5,0.5)
+	self.Element.Position = UDim2.fromScale(0.5,0.5)
+	self.Element.Parent = self.Canvas
+	self.Size = emitter.Size
+	emitter.preSpawn(self.Element)
+	self.Speed = Vector2.new(
+		math.random(emitter.xSpeed.Min, emitter.xSpeed.Max),
+		math.random(emitter.ySpeed.Min, emitter.ySpeed.Max)
+	)
+	
+
 	self.SpreadAngle = math.random(emitter.SpreadAngle.Min, emitter.SpreadAngle.Max)
 	self.RotSpeed = emitter.RotSpeed
 	
@@ -80,22 +150,35 @@ function ParticleClass:Update(delta)
 
 	self.Ticks = self.Ticks + 1
 	self.Age = self.Age + delta	
+	self.Canvas.Size = UDim2.new(
+		UDim.new(0, evalNS(self.Size.X, Normalize(0, self.maxAge, self.Age))),
+		UDim.new(0, evalNS(self.Size.Y, Normalize(0, self.maxAge, self.Age)))
+	)
+	local nextColor = evalCS(self.Color, Normalize(0, self.maxAge, self.Age))
+	if nextColor then
+		self.Canvas.GroupColor3 = nextColor
+	end
+	self.Canvas.GroupTransparency = evalNS(self.Transparency, Normalize(0, self.maxAge, self.Age))
+	
 	
 	local dir = Rotate(self.Speed, self.SpreadAngle) * Vector2.new(1,-1)
 	self.Speed += (self.Acceleration * delta)
 
 	self.Position += (dir * delta)
-	self.Element.Position = UDim2.new(
+	self.Canvas.Position = UDim2.new(
 		UDim.new(0, self.Position.X),
 		UDim.new(0, self.Position.Y)
 	)
-	self.Element.Rotation += self.RotSpeed * delta
+	
+	
+	
+	self.Canvas.Rotation += self.RotSpeed * delta
 
 end
 
 function ParticleClass:Destroy()
 	self.isDead = true
-	self.Element:Destroy()
+	self.Canvas:Destroy()
 end
 
 
@@ -106,9 +189,9 @@ export type ParticleEmitter2D = {
 	Hook: GuiObject,
 	preSpawn: any,
 	Rate: number,
-	Color: Color3,
-	Size: UDim2,
-	Transparency: number,
+	Color: ColorSequence,
+	Size: NumberSequence2D,
+	Transparency: NumberSequence,
 	ZOffset: number,
 	xSpeed: NumberRange,
 	ySpeed: NumberRange,
@@ -117,7 +200,6 @@ export type ParticleEmitter2D = {
 	Lifetime: NumberRange,
 	Acceleration: Vector2,
 	EmitterMode: (string: "Point") | (string: "Fill"),
-	Canvas: CanvasGroup,
 	__dead: boolean,
 	__elapsedTime: number,
 	__runServiceConnection: RBXScriptConnection,
@@ -140,9 +222,9 @@ function ParticleEmitterClass.new(hook: GuiObject, particleElement: GuiObject)
 	
 	--properties
 	self.Rate = 20
-	self.Color = Color3.new(1,1,1)
-	self.Size = particleElement.Size
-	self.Transparency = 0
+	self.Color = ColorSequence.new(Color3.new(1,1,1))
+	self.Size = {X = NumberSequence.new(particleElement.AbsoluteSize.X), Y = NumberSequence.new(particleElement.AbsoluteSize.Y)}
+	self.Transparency = NumberSequence.new(0)
 	self.ZOffset = 0
 	self.xSpeed = NumberRange.new(0,0)
 	self.ySpeed = NumberRange.new(150,500)
@@ -154,16 +236,7 @@ function ParticleEmitterClass.new(hook: GuiObject, particleElement: GuiObject)
 	-- "Fill": spawn randomly within the hook
 	-- "Point": spawn at the center of the hook
 	self.EmitterMode = "Point"
-	--set up canvas
-	self.Canvas = Instance.new("CanvasGroup")
-	self.Canvas.Parent = hook:FindFirstAncestorWhichIsA("LayerCollector")
-	self.Canvas.Size = UDim2.new(1,0,1,0)
-	self.Canvas.AnchorPoint = Vector2.new(0.5,0.5)
-	self.Canvas.Position = UDim2.new(0.5,0,0.5,0)
-	self.Canvas.BackgroundTransparency = 1
-	self.Canvas.ZIndex = self.Hook.ZIndex + self.ZOffset
-	self.Canvas.GroupColor3 = self.Color
-	self.Canvas.GroupTransparency = self.Transparency
+
 
 
 	self.__dead = false
@@ -171,16 +244,7 @@ function ParticleEmitterClass.new(hook: GuiObject, particleElement: GuiObject)
 	
 	self.__runServiceConnection = game:GetService("RunService").Heartbeat:Connect(function(delta)
 		
-		--hacky way to make sure the canvasgroup follows the values
-		if self.Transparency ~= self.Canvas.GroupTransparency then
-			self.Canvas.GroupTransparency = self.Transparency
-		end
-		if self.Color ~= self.Canvas.GroupColor3 then
-			self.Canvas.GroupColor3 = self.Color
-		end
-		if self.ZOffset ~= self.Canvas.ZIndex - self.Hook.ZIndex then
-			self.Canvas.GroupTransparency = self.Hook.ZIndex + self.ZOffset
-		end
+
 		self.__elapsedTime = self.__elapsedTime + delta	
 		for index, particle in ipairs(self.particles) do
 			if particle.isDead then 
