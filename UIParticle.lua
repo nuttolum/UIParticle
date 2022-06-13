@@ -126,7 +126,6 @@ function ParticleEmitter.new(hook: GuiObject, particleElement: GuiObject)
 
 		if self.Rate > 0 and (self.__dead == false) and self.Enabled then
 			while self.__elapsedTime >= (1/self.Rate) do
-				self.preSpawn()
 				table.insert(self.particles, Particle.new(self))
 				self.__elapsedTime = self.__elapsedTime - (1/self.Rate)
 			end
@@ -140,7 +139,6 @@ end
 function ParticleEmitter:Emit(n: number)
 	local counter = 0
 	while counter < n do
-		self.preSpawn()
 		counter += 1
 		table.insert(self.particles, Particle.new(self))
 	end
