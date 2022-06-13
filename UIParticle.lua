@@ -45,8 +45,8 @@ function Particle:Update(delta)
 	self.ticks = self.ticks + 1
 	self.age = self.age + delta	
 	
-	local dir = Rotate(self.Speed, self.SpreadAngle)
-	self.Speed += self.Acceleration * delta
+	local dir = Rotate(self.Speed, self.SpreadAngle) * Vector2.new(1,-1)
+	self.Speed += (self.Acceleration * delta)
 
 	self.Position += (dir * delta)
 	self.element.Position = UDim2.new(
@@ -81,11 +81,11 @@ function ParticleEmitter.new(hook: GuiObject, particleElement: GuiObject)
 	self.Size = particleElement.Size
 	self.Transparency = 0
 	self.ZOffset = 0
-	self.Speed = Vector2.new(0,-150)
+	self.Speed = Vector2.new(0,150)
 	self.SpreadAngle = NumberRange.new(-15,15)
 	self.RotSpeed = 0
 	self.Lifetime = NumberRange.new(5,10)
-	self.Acceleration = Vector2.new(0,150)
+	self.Acceleration = Vector2.new(0,-150)
 	
 	--set up canvas
 	self.Canvas = Instance.new("CanvasGroup")
