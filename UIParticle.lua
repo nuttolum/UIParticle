@@ -25,7 +25,7 @@ export type Particle = {
 }
 
 local ParticleClass: Particle = {}
-
+ParticleClass.__index = ParticleClass
 local function Rotate(v: Vector2, degrees: number)
 	local sin = math.sin(math.rad(degrees));
 	local cos = math.cos(math.rad(degrees));
@@ -135,7 +135,7 @@ function ParticleClass.new(emitter)
 	self.maxAge = math.random(emitter.Lifetime.Min, emitter.Lifetime.Max)
 	self.isDead = false
 
-	return setmetatable(self, {__index = ParticleClass})
+	return setmetatable(self, ParticleClass)
 end
 
 
@@ -213,7 +213,7 @@ export type ParticleEmitter2D = {
 }
 
 local ParticleEmitterClass: ParticleEmitter2D = {}
-
+ParticleEmitterClass.__index = ParticleEmitterClass
 function ParticleEmitterClass.fromEmitter3D(hook: GuiObject, emitter: ParticleEmitter, unitMultiplier: number?)
 	local self = {}
 	unitMultiplier = unitMultiplier or 1
@@ -269,7 +269,7 @@ function ParticleEmitterClass.fromEmitter3D(hook: GuiObject, emitter: ParticleEm
 		end
 	end)
 
-	return setmetatable(self, {__index = ParticleEmitterClass})
+	return setmetatable(self, ParticleEmitterClass)
 end
 
 function ParticleEmitterClass.new(hook: GuiObject, particleElement: GuiObject)
