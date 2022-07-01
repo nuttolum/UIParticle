@@ -11,9 +11,9 @@ export type Particle = {
 	SpreadAngle: number,
 	RotSpeed: number,
 	Acceleration: Vector2,
-	Size: NumberSequence2D,
-	Transparency: NumberSequence,
-	Color: ColorSequence,
+	Size: NumberSequence2D | Vector2,
+	Transparency: NumberSequence | number,
+	Color: ColorSequence | Color3,
 	Age: number,
 	Ticks: number,
 	maxAge: number,
@@ -42,6 +42,7 @@ end
 -- sequence evaluation functions taken from developer hub 
 
 function evalCS(cs, t)
+	if not cs:IsA("ColorSequence") then return cs end
 	-- If we are at 0 or 1, return the first or last value respectively
 	if t == 0 then return cs.Keypoints[1].Value end
 	if t == 1 then return cs.Keypoints[#cs.Keypoints].Value end
@@ -64,6 +65,7 @@ function evalCS(cs, t)
 end
 
 local function evalNS(ns, t)
+	if not ns:IsA("NumberSequence") then return ns end
 	-- If we are at 0 or 1, return the first or last value respectively
 	if t == 0 then return ns.Keypoints[1].Value end
 	if t == 1 then return ns.Keypoints[#ns.Keypoints].Value end
@@ -80,6 +82,10 @@ local function evalNS(ns, t)
 		end
 	end
 end
+
+function evalNR(range)
+	if not range:IsA("NumberRange") then return range end
+	return math.random(range.Min, range.Max)
 
 function ParticleClass.new(emitter)
 	local self = {}
@@ -118,13 +124,13 @@ function ParticleClass.new(emitter)
 	self.Size = emitter.Size
 	emitter.preSpawn(self.Element)
 	self.Speed = Vector2.new(
-		math.random(emitter.xSpeed.Min, emitter.xSpeed.Max),
-		math.random(emitter.ySpeed.Min, emitter.ySpeed.Max)
+		evalNR(emitter.xSpeed),
+		evalNR(emitter.ySpeed)
 	)
 
 
-	self.SpreadAngle = math.random(emitter.SpreadAngle.Min, emitter.SpreadAngle.Max)
-	self.RotSpeed = math.random(emitter.RotSpeed.Min, emitter.RotSpeed.Max)
+	self.SpreadAngle = evalNR(emitter.SpreadAngle)
+	self.RotSpeed = evalNR(emitter.RotSpeed)
 
 	--unrotate the acceleration since the speed will be rotated
 	self.Acceleration = Rotate(emitter.Acceleration, -self.SpreadAngle)
@@ -132,7 +138,7 @@ function ParticleClass.new(emitter)
 	self.Transparency = emitter.Transparency
 	self.Age = 0
 	self.Ticks = 0
-	self.maxAge = math.random(emitter.Lifetime.Min, emitter.Lifetime.Max)
+	self.maxAge = evalNR(emitter.Lifetime)
 	self.isDead = false
 
 	return setmetatable(self, ParticleClass)
@@ -158,7 +164,7 @@ function ParticleClass:Update(delta)
 		)
 	end
 	local nextColor = evalCS(self.Color, Normalize(0, self.maxAge, self.Age))
-	if nextColor then
+	if nextColor and nextColor ~= self.Canvas.GroupColor3  then
 		self.Canvas.GroupColor3 = nextColor
 	end
 	self.Canvas.GroupTransparency = evalNS(self.Transparency, Normalize(0, self.maxAge, self.Age))
@@ -192,15 +198,15 @@ export type ParticleEmitter2D = {
 	Hook: GuiObject,
 	preSpawn: any,
 	Rate: number,
-	Color: ColorSequence,
-	Size: NumberSequence2D,
-	Transparency: NumberSequence,
+	Color: ColorSequence | Color3,
+	Size: NumberSequence2D | Vector2,
+	Transparency: NumberSequence | number,
 	ZOffset: number,
-	xSpeed: NumberRange,
-	ySpeed: NumberRange,
-	SpreadAngle: NumberRange,
-	RotSpeed: NumberRange,
-	Lifetime: NumberRange,
+	xSpeed: NumberRange | number,
+	ySpeed: NumberRange | number,
+	SpreadAngle: NumberRange | number,
+	RotSpeed: NumberRange | number,
+	Lifetime: NumberRange | number,
 	Acceleration: Vector2,
 	EmitterMode: (string: "Point") | (string: "Fill"),
 	__dead: boolean,
