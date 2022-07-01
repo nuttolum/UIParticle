@@ -42,7 +42,7 @@ end
 -- sequence evaluation functions taken from developer hub 
 
 function evalCS(cs, t)
-	if not cs:IsA("ColorSequence") then return cs end
+	if typeof(cs) ~= "ColorSequence" then return cs end
 	-- If we are at 0 or 1, return the first or last value respectively
 	if t == 0 then return cs.Keypoints[1].Value end
 	if t == 1 then return cs.Keypoints[#cs.Keypoints].Value end
@@ -65,7 +65,7 @@ function evalCS(cs, t)
 end
 
 local function evalNS(ns, t)
-	if not ns:IsA("NumberSequence") then return ns end
+	if typeof(ns) ~= "NumberSequence" then return ns end
 	-- If we are at 0 or 1, return the first or last value respectively
 	if t == 0 then return ns.Keypoints[1].Value end
 	if t == 1 then return ns.Keypoints[#ns.Keypoints].Value end
@@ -84,7 +84,7 @@ local function evalNS(ns, t)
 end
 
 function evalNR(range)
-	if not range:IsA("NumberRange") then return range end
+	if typeof(range) ~= "NumberRange" then return range end
 	return math.random(range.Min, range.Max)
 end
 function ParticleClass.new(emitter)
