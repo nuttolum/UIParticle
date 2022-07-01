@@ -86,7 +86,7 @@ end
 function evalNR(range)
 	if not range:IsA("NumberRange") then return range end
 	return math.random(range.Min, range.Max)
-
+end
 function ParticleClass.new(emitter)
 	local self = {}
 	self.Element = emitter.Element:Clone()
