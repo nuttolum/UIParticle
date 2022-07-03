@@ -196,7 +196,7 @@ export type ParticleEmitter2D = {
 	Enabled: boolean,
 	Element: GuiObject,
 	Hook: GuiObject,
-	preSpawn: any,
+	preSpawn: (Particle) -> (),
 	Rate: number,
 	Color: ColorSequence | Color3,
 	Size: NumberSequence2D | Vector2,
