@@ -208,7 +208,7 @@ export type ParticleEmitter2D = {
 	RotSpeed: NumberRange | number,
 	Lifetime: NumberRange | number,
 	Acceleration: Vector2,
-	EmitterMode: (string: "Point") | (string: "Fill"),
+	EmitterMode: ("Point") | ("Fill"),
 	__dead: boolean,
 	__elapsedTime: number,
 	__runServiceConnection: RBXScriptConnection,
