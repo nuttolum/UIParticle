@@ -45,7 +45,7 @@ function evalCS(cs, t)
 	if typeof(cs) ~= "ColorSequence" then return cs end
 	-- If we are at 0 or 1, return the first or last value respectively
 	if t == 0 then return cs.Keypoints[1].Value end
-	if t == 1 then return cs.Keypoints[#cs.Keypoints].Value end
+	if t >= 1 then return cs.Keypoints[#cs.Keypoints].Value end
 	-- Step through each sequential pair of keypoints and see if alpha
 	-- lies between the points' time values.
 	for i = 1, #cs.Keypoints - 1 do
@@ -68,7 +68,7 @@ local function evalNS(ns, t)
 	if typeof(ns) ~= "NumberSequence" then return ns end
 	-- If we are at 0 or 1, return the first or last value respectively
 	if t == 0 then return ns.Keypoints[1].Value end
-	if t == 1 then return ns.Keypoints[#ns.Keypoints].Value end
+	if t >= 1 then return ns.Keypoints[#ns.Keypoints].Value end
 	-- Step through each sequential pair of keypoints and see if alpha
 	-- lies between the points' time values.
 	for i = 1, #ns.Keypoints - 1 do
