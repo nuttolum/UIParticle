@@ -1,9 +1,7 @@
---!nocheck
-
 -- fork of nuttolum's 2D particle emitter but allows for method chaining.
--- works by calling :Set<propertyName>(value)
+-- works by calling :Set(propertyName, value)
 -- for example, this will set its transparency property and speed property:
--- ParticleEmitterClass.new():SetTransparency(NumberRange.new(0,1)):SetSpeed(5)
+-- ParticleEmitterClass.new():Set('Transparency', NumberRange.new(0,1)):Set('Speed', Vector2.new(0.5, 0.5))
 -- note this works only for ParticleEmitterClass, not ParticleClass because ParticleClass is usually not being accessed by the dev
 
 --custom type for the 2d number sequences
@@ -12,45 +10,26 @@ export type NumberSequence2D = {
 	Y: NumberSequence
 }
 
-export type Particle = {
-	Element: GuiObject,
-	Speed: number,
-	Position: Vector2,
-	SpreadAngle: number,
-	RotSpeed: number,
-	Acceleration: Vector2,
-	Size: NumberSequence2D,
-	Transparency: NumberSequence,
-	Color: ColorSequence,
-	Age: number,
-	Ticks: number,
-	maxAge: number,
-	isDead: boolean,
-	Canvas: CanvasGroup,
-	new: (Emitter: ParticleEmitter2D) -> (Particle),
-	Update: (self: Particle, delta: number) -> (),
-	Destroy: (self: Particle) -> ()
-}
-
 local ParticleClass: Particle = {}
+
 ParticleClass.__index = ParticleClass
 
 local function Rotate(v: Vector2, degrees: number)
 	local sin = math.sin(math.rad(degrees));
 	local cos = math.cos(math.rad(degrees));
 
-	local tx = v.x;
-	local ty = v.y;
+	local tx = v.X;
+	local ty = v.Y;
 	return Vector2.new((cos * tx) - (sin * ty),(sin * tx) + (cos * ty))
 end
 
-local function Normalize(min, max, alpha)
+local function Normalize(min: number, max: number, alpha: number)
 	return (alpha - min)/(max-min)
 end
 
 -- sequence evaluation functions taken from developer hub 
 
-function evalCS(cs, t)
+function evalCS(cs: ColorSequence, t: number): Color3
 	-- If we are at 0 or 1, return the first or last value respectively
 	if t == 0 then return cs.Keypoints[1].Value end
 	if t == 1 then return cs.Keypoints[#cs.Keypoints].Value end
@@ -70,9 +49,10 @@ function evalCS(cs, t)
 			)
 		end
 	end
+	return Color3.new()
 end
 
-local function evalNS(ns, t)
+local function evalNS(ns, t: number): number
 	-- If we are at 0 or 1, return the first or last value respectively
 	if t == 0 then return ns.Keypoints[1].Value end
 	if t == 1 then return ns.Keypoints[#ns.Keypoints].Value end
@@ -80,7 +60,7 @@ local function evalNS(ns, t)
 	-- lies between the points' time values.
 	for i = 1, #ns.Keypoints - 1 do
 		local this = ns.Keypoints[i]
-		local next = ns.Keypoints[i + 1]
+		local next: NumberSequenceKeypoint = ns.Keypoints[i + 1]
 		if t >= this.Time and t < next.Time then
 			-- Calculate how far alpha lies between the points
 			local alpha = (t - this.Time) / (next.Time - this.Time)
@@ -88,9 +68,10 @@ local function evalNS(ns, t)
 			return (next.Value - this.Value) * alpha + this.Value
 		end
 	end
+	return 0
 end
 
-function ParticleClass.new(emitter)
+function ParticleClass.new(emitter: ParticleEmitter2D)
 	local self = {}
 	self.Element = emitter.Element:Clone()
 	self.Color = emitter.Color
@@ -101,11 +82,11 @@ function ParticleClass.new(emitter)
 	self.Canvas.Size = UDim2.fromOffset(self.Element.AbsoluteSize.X, self.Element.AbsoluteSize.Y)
 	self.Canvas.AnchorPoint = Vector2.new(0.5,0.5)
 	self.Canvas.BackgroundTransparency = 1
-	self.Canvas.ZIndex = emitter.Hook.ZIndex + emitter.ZOffset
+	self.Canvas.ZIndex = emitter.Hook.ZIndex :: number + emitter.ZOffset :: number
 	self.Canvas.GroupColor3 = evalCS(self.Color, 0)
 	self.Canvas.GroupTransparency = evalNS(self.Transparency, 0)
 	self.Element.Size = UDim2.fromScale(1,1)
-	local spawnPosition
+	local spawnPosition: Vector2
 	if emitter.EmitterMode == "Point" then
 		spawnPosition = emitter.Hook.AbsolutePosition
 		local size = emitter.Hook.AbsoluteSize
@@ -146,8 +127,6 @@ function ParticleClass.new(emitter)
 
 	return setmetatable(self, ParticleClass)
 end
-
-
 
 function ParticleClass:Update(delta)
 
@@ -193,45 +172,17 @@ function ParticleClass:Destroy()
 	self.Canvas:Destroy()
 end
 
+local ParticleEmitterClass = {}
+ParticleEmitterClass.__index = ParticleEmitterClass
 
-export type ParticleEmitter2D = {
-	particles: {Particle},
-	Enabled: boolean,
-	Element: GuiObject,
-	Hook: GuiObject,
-	preSpawn: any,
-	Rate: number,
-	Color: ColorSequence,
-	Size: NumberSequence2D,
-	Transparency: NumberSequence,
-	ZOffset: number,
-	xSpeed: NumberRange,
-	ySpeed: NumberRange,
-	SpreadAngle: NumberRange,
-	RotSpeed: NumberRange,
-	Lifetime: NumberRange,
-	Acceleration: Vector2,
-	EmitterMode: (string: "Point") | (string: "Fill"),
-	__dead: boolean,
-	__elapsedTime: number,
-	__runServiceConnection: RBXScriptConnection,
-	new: (Hook: GuiObject, Element: GuiObject) -> (ParticleEmitter2D),
-	fromEmitter3D: (Hook: GuiObject, Emitter: ParticleEmitter, unitMultiplier: number?) -> (ParticleEmitter2D),
-	Emit: (self: ParticleEmitter2D, count: number) -> (),
-	Destroy: (self: ParticleEmitter2D) -> ()
-}
-
-local ParticleEmitterClass: ParticleEmitter2D = {}
-function ParticleEmitterClass:__index(key: string)
-	return ParticleEmitterClass[key] or function(_, value)
-		self[key:gsub('Set', '')] = value
-		return self
-	end
+function ParticleEmitterClass:Set(propertyName, value)
+	self[propertyName] = value
+	return self
 end
 
 function ParticleEmitterClass.fromEmitter3D(hook: GuiObject, emitter: ParticleEmitter, unitMultiplier: number?)
 	local self = {}
-	unitMultiplier = unitMultiplier or 1
+	local unitMultiplier = unitMultiplier or 1
 	self.particles = {}
 	self.Enabled = false
 	self.Element = Instance.new("ImageLabel")
@@ -255,7 +206,7 @@ function ParticleEmitterClass.fromEmitter3D(hook: GuiObject, emitter: ParticleEm
 	self.RotSpeed = emitter.RotSpeed
 	self.Lifetime = emitter.Lifetime
 	self.Acceleration = Vector2.new(emitter.Acceleration.X * unitMultiplier, emitter.Acceleration.Y * unitMultiplier)
-
+	
 	self.EmitterMode = emitter.ShapeStyle == Enum.ParticleEmitterShapeStyle.Volume and "Fill" or "Point"
 
 
@@ -343,6 +294,9 @@ function ParticleEmitterClass.new(hook: GuiObject, particleElement: GuiObject)
 	return setmetatable(self, ParticleEmitterClass)
 end
 
+export type ParticleEmitter2D = typeof(ParticleEmitterClass.new(Instance.new('Frame'), Instance.new('Frame')))
+export type Particle = typeof(ParticleClass.new(ParticleEmitterClass.new(Instance.new('Frame'), Instance.new('Frame'))))
+
 
 function ParticleEmitterClass:Emit(count: number)
 	local counter = 0
@@ -350,7 +304,7 @@ function ParticleEmitterClass:Emit(count: number)
 		counter += 1
 		table.insert(self.particles, ParticleClass.new(self))
 	end
-
+	return self
 end
 
 function ParticleEmitterClass:Destroy()
